@@ -1,5 +1,4 @@
 from aiogram import Dispatcher, Bot
-# from config import BOT_TOKEN
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from dotenv import load_dotenv
 import os
