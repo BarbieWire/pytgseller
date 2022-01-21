@@ -3,3 +3,4 @@ Procfile
 .gitignore
 venv
 .env
+__pycache__
