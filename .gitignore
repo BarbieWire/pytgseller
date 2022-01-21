@@ -1,1 +1,5 @@
 .idea
+Procfile
+.gitignore
+venv
+.env

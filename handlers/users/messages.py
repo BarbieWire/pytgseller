@@ -1,210 +1,177 @@
 import asyncio
 import random
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from keyboards.menu import main_menu
 from aiogram.dispatcher import dispatcher
 from aiogram import Dispatcher
 from aiogram.dispatcher import filters
-from keyboards.menu.main_menu import final_list
 from keyboards.inlinebuttons import buttons
 from loader import bot
-from aiogram.types import ReplyKeyboardRemove
-from database.sqlite_database import get_data_from_db
+from database.sqlite_database import Connection, DBControl
 from Bitcoin_parse import get_currency
-from config import wallets
+from handlers.users.cache import CacheStorage
+import os
 
 
-parsed_data = "HERE WILL BE DATA FROM DB"
-counter = 0
+HOST, PASSWORD, DATABASE, USER = os.getenv("HOST"), os.getenv("PASSWORD"), os.getenv("DATABASE"), os.getenv("USER")
+_cache = CacheStorage()
+_conn = Connection(host=HOST, password=PASSWORD, database=DATABASE, user=USER).connect()
 
 
-async def am_reg(message: Message):
-    if message.text == '🌎 Regions':
-        await message.answer(text=message.text, reply_markup=main_menu.region_menu)
+# wallets
+WALLETS = [
+    "bc1q9f2vxhnrd4yn22nary7zy555r3fgenhajquhya",
+    "bc1q48xeznly02m7xszcx0gpt8wlh3vt5dcqt68klp",
+    "bc1qrqsh7m82f5htt8hjjjv8c2v9yhq8t0kqjj7fg7",
+    "bc1q7qct55uh68rt07zgxef07kw2cq6mkttj92l9ez",
+    "bc1qzvrqwre62r74am5flgsllxd4w3kfsd6kdwfm0a",
+    "bc1q94qgmwvfljm5nf5rq5g7dhwq00y05vyw5n7vhe",
+    "bc1qhrgz54w6pf395kypthvwz4kzxgnjmnzmet7kux",
+    "bc1qlr56c9h9tt73ww5u48se0yxh2wxhpcsyqwxxct",
+    "bc1qkgamy20g2rp0aks2h6q6hnt5cdlsf2xcp8zlwk",
+    "bc1quz5yntykvkr5n6ll836dnz8m658n9673a5ffnj",
+]
 
-    elif message.text == '💰 Balance':
-        await message.answer(text='Moving to Balance', reply_markup=main_menu.Balance_menu)
 
-    elif message.text == '🔙 Back to main menu':
+async def choice(message: Message):
+    if message.text == '🔙 Back to main menu':
         await message.answer(text='Moving back', reply_markup=main_menu.main_menu)
-
-    elif message.text in main_menu.final_list and message.text != '🔙 Back to main menu':
-        await message.answer(message.text)
-
-
-def parse_data_from_db(message: Message):
-    parse_list = get_data_from_db()
-
-    for i in parse_list:
-        try:
-            global parsed_data
-            parsed_data = list(i[message.text])
-            return parsed_data
-
-        except Exception as ex:
-            print(f'{ex}')
-
-
-def text_generate():
-    try:
-        text = f"💰 Card current balance: {parsed_data[counter][1]}\n" \
-               f"🖊 description: {parsed_data[counter][2]}\n" \
-               f"🌎 Card region: {parsed_data[counter][3]}\n" \
-               f"💵 Price: {parsed_data[counter][4]}\n"
-        return text
-    except Exception as ex:
-        print(parsed_data[counter])
-
-
-async def first_message(message: Message):
-    global parsed_data
-    global counter
-
-    if len(parsed_data) > 1:
-        counter = 0
-        text = text_generate()
-        await bot.send_photo(caption=text, photo=parsed_data[counter][0],
-                             chat_id=message.from_user.id,
-                             reply_markup=buttons.inline_markup_start)
-    elif len(parsed_data) == 1:
-        counter = 0
-        text = text_generate()
-        await bot.send_photo(caption=text, photo=parsed_data[counter][0],
-                             chat_id=message.from_user.id,
-                             reply_markup=buttons.only_one_elem)
+    elif message.text == "🌎 Regions":
+        await message.answer(text=message.text, reply_markup=main_menu.region_menu)
     else:
-        await message.answer(text='Coming soon...', reply_markup=buttons.only_back_to_main_menu)
+        await message.answer(text=message.text, reply_markup=main_menu.Balance_menu)
 
 
-async def inline_template(message: Message):
-    markup = ReplyKeyboardRemove()
-    position = message.text
+async def text_generate(message=None, callback=None, reply_markup=None, text="") -> None:
+    if message is not None:
+        current = await _cache.get_user(message.from_user.id)
+    else:
+        current = await _cache.get_user(callback.from_user.id)
 
-    if message.text == '💸 20$ - 100$':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position}', reply_markup=markup)
-        await first_message(message)
+    current = (current['data'][current['position']])
+    description = f"💰 Card current balance: {current[1]}$\n" \
+                  f"🖊 description: {current[2]}\n" \
+                  f"🌎 Card region: {current[3]}\n" \
+                  f"💵 Price: {current[4]}$\n" \
 
-    elif message.text == '💸 100$ - 1000$':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position}', reply_markup=markup)
-        await first_message(message)
+    if message is not None and callback is None:
+        await bot.send_photo(caption=description + text, photo=current[0],
+                             chat_id=message.from_user.id, reply_markup=reply_markup)
 
-    elif message.text == '💸 1000$ - 3500$':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position}', reply_markup=markup)
-        await first_message(message)
-
-    elif message.text == '💸 4000$ - 10000$':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position}', reply_markup=markup)
-        await first_message(message)
-
-    elif message.text == '🇪🇺 EU':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position} region 🌎', reply_markup=markup)
-        await first_message(message)
-
-    elif message.text == '🇺🇸 US':
-        data_parse = parse_data_from_db(message)
-        await message.answer(text=F'moving to {position} region 🌎', reply_markup=markup)
-        await first_message(message)
-
-
-async def callbackdata(callback: CallbackQuery):
-    global counter
-    global parsed_data
-
-    if callback.data == 'buy_button':
-        counter = 0
+    elif callback is not None and message is None:
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
-        await bot.send_photo(chat_id=callback.from_user.id, reply_markup=buttons.inline_markup_yes_no,
-                             caption=text_generate() + '\n\nAre you sure you want to buy this item?',
-                             photo=parsed_data[counter][0])
+        await bot.send_photo(chat_id=callback.from_user.id, reply_markup=reply_markup,
+                             caption=description + text, photo=current[0])
 
-    if callback.data == 'no':
-        counter = 0
-        await bot.delete_message(callback.from_user.id, callback.message.message_id)
-        text = text_generate()
-        await bot.send_photo(chat_id=callback.from_user.id, caption=f"{text}",
-                             photo=parsed_data[counter][0], reply_markup=buttons.inline_markup_start)
 
-    if callback.data == 'yes':
-        counter = 0
-        await bot.delete_message(callback.from_user.id, callback.message.message_id)
-        await bot.send_message(text='Preparing wallet for you...', chat_id=callback.from_user.id)
-        btc = await get_currency(int(float(parsed_data[counter][4].rstrip("$"))))
-        await asyncio.sleep(random.randint(2, 5))
-        wallet = random.choice(wallets)
-        await bot.send_message(text=f'Now you have 20 minutes to pay {parsed_data[counter][4]}\n'
-                                    f'that equals *{btc}* on this wallet\n*{wallet}*\n'
-                                    f'then just click on button check payment',
-                               chat_id=callback.from_user.id, parse_mode='Markdown',
-                               reply_markup=buttons.inline_markup_cancel)
+async def first_message(message: Message) -> None:
+    parse = await _cache.get_user(message.from_user.id)
+    if len(parse["data"]) > 1:
+        await message.answer(text=message.text, reply_markup=ReplyKeyboardRemove())
+        await text_generate(message=message, reply_markup=buttons.inline_markup_start)
 
-    if callback.data == 'cancel':
-        counter = 0
+    elif len(parse["data"]) == 1:
+        await message.answer(text=message.text, reply_markup=ReplyKeyboardRemove())
+        await text_generate(message=message, reply_markup=buttons.only_one_elem)
+
+
+async def get_data(message: Message) -> None:
+    base = DBControl(connection=_conn)
+    if message.text.startswith("💸"):
+        data = message.text.split()
+        parse = base.balance((data[1], data[3]))
+        if parse == []:
+            await message.answer(text="Coming soon...", reply_markup=main_menu.back_to_main_menu_only)
+        else:
+            await _cache.add(key=message.from_user.id, data=parse)
+            await first_message(message=message)
+
+    else:
+        data = message.text.split()
+        parse = base.region((data[1].upper(),))
+        if parse == []:
+            await message.answer(text="Coming soon...", reply_markup=main_menu.back_to_main_menu_only)
+        else:
+            await _cache.add(key=message.from_user.id, data=parse)
+            await first_message(message=message)
+
+
+async def call_back_data(callback: CallbackQuery) -> None:
+    try:
+        current_user = await _cache.get_user(callback.from_user.id)
+        position = current_user["position"]
+
+        if callback.data == 'buy_button':
+            await text_generate(callback=callback, text='\nAre you sure you want to buy this item?',
+                                reply_markup=buttons.inline_markup_yes_no)
+            current_user["position"] = 0
+
+        elif callback.data == 'no':
+            await text_generate(reply_markup=buttons.only_one_elem, callback=callback)
+            current_user["position"] = 0
+
+        elif callback.data == 'yes':
+            cash = current_user["data"][current_user["position"]][4]
+            await bot.delete_message(callback.from_user.id, callback.message.message_id)
+            await bot.send_message(text='Preparing wallet for you...', chat_id=callback.from_user.id)
+            btc = await get_currency(int(float(cash.rstrip("$"))))
+            wallet = random.choice(WALLETS)
+            await bot.send_message(text=f'Now you have 20 minutes to pay {cash}$\n'
+                                        f'that equals *{btc}* on this wallet\n*{wallet}*\n'
+                                        f'then just click on button check payment',
+                                   chat_id=callback.from_user.id, parse_mode='Markdown',
+                                   reply_markup=buttons.inline_markup_cancel)
+            current_user["position"] = 0
+
+        elif callback.data == 'cancel':
+            await asyncio.sleep(random.randint(1, 2))
+            await bot.delete_message(callback.from_user.id, callback.message.message_id)
+            await bot.send_message(text='turning you back...', reply_markup=main_menu.main_menu,
+                                   chat_id=callback.from_user.id)
+            current_user["position"] = 0
+
+        elif callback.data == 'check_pm':
+            await callback.answer(text="I can't see any transactions", show_alert=True)
+
+        if callback.data == 'Back to main menu':
+            try:
+                await _cache.delete(callback.from_user.id)
+            except Exception as ex:
+                print(ex)
+            await bot.delete_message(callback.from_user.id, callback.message.message_id)
+            await bot.send_message(callback.from_user.id, text=f"🔙 Moving back", reply_markup=main_menu.main_menu)
+
+        if callback.data == 'next_elem':
+            if position == len(current_user["data"]) - 2:
+                await _cache.increase(callback.from_user.id)
+                await text_generate(reply_markup=buttons.inline_markup_final, callback=callback)
+            else:
+                await _cache.increase(callback.from_user.id)
+                await text_generate(reply_markup=buttons.inline_markup_middle, callback=callback)
+
+        elif callback.data == 'prev_elem':
+            if position == 1:
+                await _cache.decrease(callback.from_user.id)
+                await text_generate(reply_markup=buttons.inline_markup_start, callback=callback)
+            else:
+                await _cache.decrease(callback.from_user.id)
+                await text_generate(reply_markup=buttons.inline_markup_middle, callback=callback)
+
+    except Exception as ex:
+        print(ex)
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
-        await asyncio.sleep(random.randint(1, 3))
-        await bot.send_message(chat_id=callback.from_user.id, text='turning you back...',
+        await bot.send_message(text="This blank expired, turning you back...", chat_id=callback.from_user.id,
                                reply_markup=main_menu.main_menu)
-
-    if callback.data == 'check_pm':
-        await asyncio.sleep(random.randint(1, 2))
-        await callback.answer(text="I can't see any transactions", show_alert=True)
-
-    if callback.data == 'Back to main menu':
-        counter = 0
-        await bot.delete_message(callback.from_user.id, callback.message.message_id)
-        await bot.send_message(callback.from_user.id, text=f"🔙 Moving back", reply_markup=main_menu.main_menu)
-
-
-    if callback.data == 'next_elem':
-        if counter == len(parsed_data) - 2:
-            counter += 1
-            await bot.delete_message(callback.from_user.id, callback.message.message_id)
-            text = text_generate()
-            await bot.send_photo(chat_id=callback.from_user.id, caption=f"{text}",
-                                 photo=parsed_data[counter][0], reply_markup=buttons.inline_markup_final)
-        else:
-            counter += 1
-            await bot.delete_message(callback.from_user.id, callback.message.message_id)
-            text = text_generate()
-            await bot.send_photo(chat_id=callback.from_user.id, caption=f"{text}",
-                                 photo=parsed_data[counter][0], reply_markup=buttons.inline_markup_middle)
-
-    elif callback.data == 'prev_elem':
-        if counter == 1:
-            counter -= 1
-            await bot.delete_message(callback.from_user.id, callback.message.message_id)
-            text = text_generate()
-            await bot.send_photo(chat_id=callback.from_user.id, caption=f"{text}",
-                                 photo=parsed_data[counter][0], reply_markup=buttons.inline_markup_start)
-        else:
-            counter -= 1
-            await bot.delete_message(callback.from_user.id, callback.message.message_id)
-            text = text_generate()
-            await bot.send_photo(chat_id=callback.from_user.id, caption=f"{text}",
-                                 photo=parsed_data[counter][0], reply_markup=buttons.inline_markup_middle)
-
-
-async def unknown(message: Message):
-    await message.answer(text='Unknown command!\ntry something else')
-
-
-async def unknown_photo(message: Message):
-    answers = ["I am just a robot, stop send me this", 'Cool photo, man', 'My robot eyes bleeding']
-    await message.reply(text=random.choice(answers))
 
 
 def register_message_handler(dp: Dispatcher):
-    dp.register_message_handler(am_reg, dispatcher.Text(equals=['🌎 Regions', '💰 Balance', '🔙 Back to main menu'],
-                                                        ignore_case=True))
-    dp.register_message_handler(inline_template, filters.Text(equals=final_list, ignore_case=True))
-    dp.register_callback_query_handler(callbackdata, filters.Text(
-        equals=['next_elem', 'prev_elem', 'Back to main menu', 'buy_button', 'yes', 'no', 'cancel', 'check_pm']))
+    dp.register_message_handler(choice, dispatcher.Text(equals=['🌎 Regions',
+                                                                '💰 Balance',
+                                                                '🔙 Back to main menu'], ignore_case=True))
 
+    dp.register_message_handler(get_data, filters.Text(equals=["🇪🇺 EU", "🇺🇸 US", '💸 20$ - 100$', '💸 100$ - 1000$',
+                                                               '💸 1000$ - 3500$', '💸 4000$ - 10000$'], ignore_case=True))
 
-def register_handler_unknown_command(dp: Dispatcher):
-    dp.register_message_handler(unknown_photo, content_types=['photo'])
-    dp.register_message_handler(unknown)
+    dp.register_callback_query_handler(call_back_data, filters.Text(
+        equals=['next_elem', 'prev_elem', 'Back to main menu', 'buy_button', 'yes', 'no', 'cancel', 'check_pm'])
+    )

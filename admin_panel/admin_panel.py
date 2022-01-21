@@ -2,11 +2,15 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram import types
 from aiogram import Dispatcher
-import database.sqlite_database
-from config import admins
+from database.sqlite_database import Connection, DBControl
 from aiogram.dispatcher.filters import Text
-from database.sqlite_database import add_command, readall
 from loader import bot
+from keyboards.menu.main_menu import back_to_main_menu_only
+import os
+
+
+HOST, PASSWORD, DATABASE, USER = os.getenv("HOST"), os.getenv("PASSWORD"), os.getenv("DATABASE"), os.getenv("USER")
+ADMINS = [os.getenv("ADMINS")]
 
 
 class FSMAdmin(StatesGroup):
@@ -19,13 +23,13 @@ class FSMAdmin(StatesGroup):
 
 # @dp.message_handler(commands=['Upload'])
 async def start(message: types.Message):
-    if str(message.from_user.id) in admins:
+    if str(message.from_user.id) in ADMINS:
         await FSMAdmin.photo.set()
-        await message.reply("Загрузи фото")
+        await message.reply("Загрузи фото", reply_markup=types.ReplyKeyboardRemove())
 
 
 async def cancel(message: types.Message, state: FSMContext):
-    if str(message.from_user.id) in admins:
+    if str(message.from_user.id) in ADMINS:
         await state.finish()
         await message.reply('Отмена сработала')
 
@@ -43,9 +47,9 @@ async def load_photo(message: types.Message, state: FSMContext):
 async def balance_amount(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         try:
-            data['balance'] = str(float(message.text)) + '$'
-        except:
-            data['balance'] = message.text + '$'
+            data['balance'] = str(float(message.text))
+        except Exception as _ex:
+            data['balance'] = message.text
 
     await FSMAdmin.next()
     await message.reply('Пришли описание продукта')
@@ -62,7 +66,7 @@ async def set_description(message: types.Message, state: FSMContext):
 
 async def set_region(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data['region'] = message.text
+        data['region'] = message.text.upper()
 
     await FSMAdmin.next()
     await message.reply('Пришли цену карты\nФормат: "10.50" или "150"')
@@ -72,33 +76,42 @@ async def set_region(message: types.Message, state: FSMContext):
 async def set_price(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         try:
-            data['price'] = str(float(message.text)) + '$'
+            data['price'] = str(float(message.text))
+        except Exception:
+            data['price'] = message.text
 
-        except:
-            data['price'] = message.text + '$'
-
-    await add_command(state)
+    conn = Connection(host=HOST, database=DATABASE, user=USER, password=PASSWORD).connect()
+    DBControl(connection=conn).add(tuple(data.values()))
+    await message.answer(text="Все прошло успешно", reply_markup=back_to_main_menu_only)
     await state.finish()
 
 
 async def delete_item(message: types.Message):
-    if str(message.from_user.id) in admins:
-        data = await readall()
+    conn = Connection(host=HOST, database=DATABASE, user=USER, password=PASSWORD).connect()
+    data = DBControl(connection=conn).readall()
+
+    if str(message.from_user.id) in ADMINS:
         for i in data:
             await bot.send_photo(photo=i[0], caption=F'{i}', chat_id=message.from_user.id,
                                  reply_markup=types.InlineKeyboardMarkup().add(
-                                     types.InlineKeyboardButton(text='Delete', callback_data=f'del {i[2]}')
-                                 ))
+                                     types.InlineKeyboardButton(text='Delete', callback_data=f'del {i[2]}'))
+                                 )
 
 
 async def delete_callback(callback: types.CallbackQuery):
-    await database.sqlite_database.delete_data_from_db(callback.data.replace('del ', ''))
+    conn = Connection(host=HOST, database=DATABASE, user=USER, password=PASSWORD).connect()
+    DBControl(connection=conn).delete(callback.data.replace('del ', ''))
     await callback.answer(text='Удалено успешно!', show_alert=True)
 
 
 def register_handler_admin(dp: Dispatcher):
     dp.register_message_handler(start, commands=['Upload'], state=None)
-    dp.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state="*")
+    dp.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state=[FSMAdmin.photo,
+                                                                                        FSMAdmin.balance,
+                                                                                        FSMAdmin.region,
+                                                                                        FSMAdmin.price,
+                                                                                        FSMAdmin.description,
+                                                                                        ])
     dp.register_message_handler(load_photo, content_types=["photo"], state=FSMAdmin.photo)
     dp.register_message_handler(balance_amount, state=FSMAdmin.balance)
     dp.register_message_handler(set_description, state=FSMAdmin.description)
