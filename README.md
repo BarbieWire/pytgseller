@@ -7,7 +7,7 @@ Template that helps you sell internal game currency inside telegram.
 
 
 # DATABASE structure
-```
+```sql
 CREATE TABLE IF NOT EXISTS public.data
 (
     img character varying COLLATE pg_catalog."default",
